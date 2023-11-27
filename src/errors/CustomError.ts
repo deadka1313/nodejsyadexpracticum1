@@ -19,4 +19,12 @@ export default class CustomError extends Error implements IError {
   static BadRequest(message: string) {
     return new CustomError(HTTPStatus.BAD_REQUEST, message);
   }
+
+  static Unauthorized(message: string) {
+    return new CustomError(HTTPStatus.UNAUTHORIZED, message);
+  }
+
+  static Conflict(message: string) {
+    return new CustomError(HTTPStatus.CONFLICT, message);
+  }
 }

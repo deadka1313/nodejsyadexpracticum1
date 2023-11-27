@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import HTTPStatus from 'http-status';
 import Card from '../models/card';
 import CustomError from '../errors/CustomError';
+import { IAuthReq } from '../utils/types';
 
 export const getCards = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -12,7 +14,7 @@ export const getCards = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-export const createCard = async (req: Request, res: Response, next: NextFunction) => {
+export const createCard = async (req: IAuthReq, res: Response, next: NextFunction) => {
   try {
     const {
       name,
@@ -22,8 +24,7 @@ export const createCard = async (req: Request, res: Response, next: NextFunction
     const card = await Card.create({
       name,
       link,
-      // @ts-ignore
-      owner: req.user._id,
+      owner: req.user?._id,
     });
 
     return res.send(card);
@@ -35,11 +36,16 @@ export const createCard = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const removeCard = async (req: Request, res: Response, next: NextFunction) => {
+export const removeCard = async (req: IAuthReq, res: Response, next: NextFunction) => {
   try {
-    const card = await Card.findByIdAndDelete(req.params.cardId);
+    const card = await Card.findById(req.params.cardId).orFail();
+    if (card.owner.toString() !== req.user?._id.toString()) {
+      throw CustomError.Unauthorized('Вы не можете удалить карточку другого пользователя');
+    }
 
-    return res.send(card);
+    const deleteCard = await card.deleteOne();
+
+    return res.status(HTTPStatus.NO_CONTENT).send({ data: deleteCard });
   } catch (err) {
     if (err instanceof mongoose.Error.CastError) {
       return next(CustomError.NotFoundError('Не верный ID кароточки'));
@@ -48,12 +54,11 @@ export const removeCard = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-export const likeCard = async (req: Request, res: Response, next: NextFunction) => {
+export const likeCard = async (req: IAuthReq, res: Response, next: NextFunction) => {
   try {
     const card = await Card.findByIdAndUpdate(
       req.params.cardId,
-      // @ts-ignore
-      { $addToSet: { likes: req.user._id } },
+      { $addToSet: { likes: req.user?._id } },
       { new: true },
     );
 
@@ -69,12 +74,11 @@ export const likeCard = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-export const dislikeCard = async (req: Request, res: Response, next: NextFunction) => {
+export const dislikeCard = async (req: IAuthReq, res: Response, next: NextFunction) => {
   try {
     const card = await Card.findByIdAndUpdate(
       req.params.cardId,
-      // @ts-ignore
-      { pull: { likes: req.user._id } },
+      { pull: { likes: req.user?._id } },
       { new: true },
     );
 
